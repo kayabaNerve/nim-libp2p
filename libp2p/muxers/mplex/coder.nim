@@ -18,7 +18,7 @@ import types,
 logScope:
   topic = "MplexCoder"
 
-const DefaultChannelSize* = 1 shr 20
+const DefaultChannelSize* = 1 shl 20
 
 type
   Msg* = tuple
@@ -54,7 +54,8 @@ proc readMsg*(conn: Connection): Future[Msg] {.async, gcsafe.} =
 
   let dataLenVarint = await conn.readMplexVarint()
   trace "read data len varint", varint = dataLenVarint
-  var data: seq[byte]
+
+  var data: seq[byte] = newSeq[byte](dataLenVarint.int)
   if dataLenVarint.int > 0:
     data = await conn.read(dataLenVarint.int)
     trace "read data", len = data.len(), data = data
@@ -66,6 +67,9 @@ proc writeMsg*(conn: Connection,
                id: uint,
                msgType: MessageType,
                data: seq[byte] = @[]) {.async, gcsafe.} =
+  trace "seding data over mplex", id,
+                                  msgType,
+                                  data = data.len
   ## write lenght prefixed
   var buf = initVBuffer()
   buf.writePBVarint(id shl 3 or ord(msgType).uint)

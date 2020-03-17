@@ -6,7 +6,6 @@
 ## at your option.
 ## This file may not be copied, modified, or distributed except according to
 ## those terms.
-import options
 import chronos, chronicles
 import nimcrypto/[sysrand, hmac, sha2, sha, hash, rijndael, twofish, bcmode]
 import secure,
@@ -16,7 +15,8 @@ import secure,
        ../../crypto/crypto,
        ../../crypto/ecnist,
        ../../peer,
-       ../../stream/simplestream
+       ../../stream/simplestream,
+       ../../protobuf/minprotobuf
 export hmac, sha2, sha, hash, rijndael, bcmode
 
 logScope:
@@ -61,7 +61,7 @@ type
     of SecureMacType.Sha1:
       ctxsha1: HMAC[sha1]
 
-  SecureConnection = ref object of Connection
+  SecioConn = ref object of SecureConn
     writerMac: SecureMac
     readerMac: SecureMac
     writerCoder: SecureCipher
@@ -148,7 +148,7 @@ proc decrypt(cipher: var SecureCipher, input: openarray[byte],
   of SecureCipherType.Twofish:
     cipher.ctxtwofish256.decrypt(input, output)
 
-proc macCheckAndDecode(sconn: SecureConnection, data: var seq[byte]): bool =
+proc macCheckAndDecode(sconn: SecioConn, data: var seq[byte]): bool =
   ## This procedure checks MAC of recieved message ``data`` and if message is
   ## authenticated, then decrypt message.
   ##
@@ -175,7 +175,7 @@ proc macCheckAndDecode(sconn: SecureConnection, data: var seq[byte]): bool =
   data.setLen(mark)
   result = true
 
-proc readMessage(sconn: SecureConnection): Future[seq[byte]] {.async.} =
+method readMessage(sconn: SecioConn): Future[seq[byte]] {.async.} =
   ## Read message from channel secure connection ``sconn``.
   try:
     var buf = newSeq[byte](4)
@@ -200,7 +200,7 @@ proc readMessage(sconn: SecureConnection): Future[seq[byte]] {.async.} =
   except AsyncStreamReadError:
     trace "Error reading from connection"
 
-proc writeMessage(sconn: SecureConnection, message: seq[byte]) {.async.} =
+method writeMessage(sconn: SecioConn, message: seq[byte]) {.async.} =
   ## Write message ``message`` to secure connection ``sconn``.
   let macsize = sconn.writerMac.sizeDigest()
   var msg = newSeq[byte](len(message) + 4 + macsize)
@@ -220,12 +220,12 @@ proc writeMessage(sconn: SecureConnection, message: seq[byte]) {.async.} =
   except AsyncStreamWriteError:
     trace "Could not write to connection"
 
-proc newSecureConnection(conn: Connection,
-                         hash: string,
-                         cipher: string,
-                         secrets: Secret,
-                         order: int,
-                         remotePubKey: PublicKey): SecureConnection =
+proc newSecioConn(conn: Connection,
+                  hash: string,
+                  cipher: string,
+                  secrets: Secret,
+                  order: int,
+                  remotePubKey: PublicKey): SecioConn =
   ## Create new secure connection, using specified hash algorithm ``hash``,
   ## cipher algorithm ``cipher``, stretched keys ``secrets`` and order
   ## ``order``.
@@ -279,7 +279,7 @@ proc transactMessage(conn: Connection,
   except AsyncStreamWriteError:
     trace "Could not write to connection", conn = $conn
 
-proc handshake(s: Secio, conn: Connection): Future[SecureConnection] {.async.} =
+method handshake*(s: Secio, conn: Connection, initiator: bool = false): Future[SecureConn] {.async.} =
   var
     localNonce: array[SecioNonceSize, byte]
     remoteNonce: seq[byte]
@@ -402,9 +402,10 @@ proc handshake(s: Secio, conn: Connection): Future[SecureConnection] {.async.} =
 
   # Perform Nonce exchange over encrypted channel.
 
-  result = newSecureConnection(conn, hash, cipher, keys, order, remotePubkey)
-  await result.writeMessage(remoteNonce)
-  var res = await result.readMessage()
+  var secioConn = newSecioConn(conn, hash, cipher, keys, order, remotePubkey)
+  result = secioConn
+  await secioConn.writeMessage(remoteNonce)
+  var res = await secioConn.readMessage()
 
   if res != @localNonce:
     trace "Nonce verification failed", receivedNonce = toHex(res),
@@ -436,26 +437,8 @@ proc handleConn(s: Secio, conn: Connection): Future[Connection] {.async, gcsafe.
   result.peerInfo = PeerInfo.init(sconn.peerInfo.publicKey.get())
 
 method init(s: Secio) {.gcsafe.} =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
-    trace "handling connection"
-    try:
-      asyncCheck s.handleConn(conn)
-      trace "connection secured"
-    except CatchableError as exc:
-      if not conn.closed():
-        warn "securing connection failed", msg = exc.msg
-        await conn.close()
-
+  procCall Secure(s).init()
   s.codec = SecioCodec
-  s.handler = handle
-
-method secure*(s: Secio, conn: Connection): Future[Connection] {.async, gcsafe.} =
-  try:
-    result = await s.handleConn(conn)
-  except CatchableError as exc:
-    warn "securing connection failed", msg = exc.msg
-    if not conn.closed():
-      await conn.close()
 
 proc newSecio*(localPrivateKey: PrivateKey): Secio =
   new result
