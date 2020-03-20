@@ -6,6 +6,7 @@
 ## at your option.
 ## This file may not be copied, modified, or distributed except according to
 ## those terms.
+import options
 import chronos, chronicles
 import nimcrypto/[sysrand, hmac, sha2, sha, hash, rijndael, twofish, bcmode]
 import secure,
