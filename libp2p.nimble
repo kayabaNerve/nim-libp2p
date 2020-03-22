@@ -22,4 +22,10 @@ proc runTest(filename: string) =
 task test, "Runs the test suite":
   runTest "testnative"
   runTest "testdaemon"
-  runTest "testinterop"
+
+task test_interop, "Runs interop tests":
+  if gorgeEx("go").exitCode == 0:
+    echo "Go found, running tests...!"
+    runTest "testinterop"
+  elif gorgeEx("cargo").exitCode == 0:
+    echo "Rust found, running tests..."
