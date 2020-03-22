@@ -1,5 +1,3 @@
-language: go
-
 # https://docs.travis-ci.com/user/caching/
 cache:
   directories:
@@ -10,16 +8,36 @@ git:
   # when multiple CI builds are queued, the tested commit needs to be in the last X commits cloned with "--depth X"
   depth: 10
 
-go: "1.12.x"
-
 matrix:
   include:
-    - os: linux
+    - language: go
+      go: "1.12.x"
+      os: linux
       before_install:
         - export GOPATH=$HOME/go
-    - os: osx
+      before_script:
+        # install and build go-libp2p-daemon
+        - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_p2pd.sh
+        - bash build_p2pd.sh p2pdCache v0.2.1
+    - language: go
+      go: "1.12.x"
+      os: osx
       before_install:
         - export GOPATH=$HOME/go
+      before_script:
+        # install and build go-libp2p-daemon
+        - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_p2pd.sh
+        - bash build_p2pd.sh p2pdCache v0.2.1
+    - language: rust
+      os: linux
+      before_script:
+        # install and build rust interop tests
+        - echo "TODO"
+    - language: rust
+      os: osx
+      before_script:
+        # install and build rust interop tests
+         - echo "TODO"
 
 install:
   # build nim from our own branch - this to avoid the day-to-day churn and
@@ -28,10 +46,6 @@ install:
   - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
   - env MAKE="make -j2" bash build_nim.sh Nim csources dist/nimble NimBinaries
   - export PATH="$PWD/Nim/bin:$GOPATH/bin:$PATH"
-
-  # install and build go-libp2p-daemon
-  - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_p2pd.sh
-  - bash build_p2pd.sh p2pdCache v0.2.1
 
 script:
   - nimble install -y --depsOnly
