@@ -164,50 +164,50 @@ suite "Noise":
     check:
       waitFor(testSwitch()) == true
 
-  # test "interop with rust noise":
-  #   when true: # disable cos in CI we got no interop server/client
-  #     proc testListenerDialer(): Future[bool] {.async.} =
-  #       const
-  #         proto = "/noise/xx/25519/chachapoly/sha256/0.1.0"
+  test "interop with rust noise":
+    when true: # disable cos in CI we got no interop server/client
+      proc testListenerDialer(): Future[bool] {.async.} =
+        const
+          proto = "/noise"
 
-  #       let
-  #         local = Multiaddress.init("/ip4/0.0.0.0/tcp/23456")
-  #         info = PeerInfo.init(PrivateKey.random(RSA), [local])
-  #         noise = newNoise(info.privateKey)
-  #         ms = newMultistream()
-  #         transport = TcpTransport.newTransport()
+        let
+          local = Multiaddress.init("/ip4/0.0.0.0/tcp/23456")
+          info = PeerInfo.init(PrivateKey.random(RSA), [local])
+          noise = newNoise(info.privateKey)
+          ms = newMultistream()
+          transport = TcpTransport.newTransport()
 
-  #       proc connHandler(conn: Connection) {.async, gcsafe.} =
-  #         try:
-  #           await ms.handle(conn)
-  #           trace "ms.handle exited"
-  #         except:
-  #           error getCurrentExceptionMsg()
-  #         finally:
-  #           await conn.close()
+        proc connHandler(conn: Connection) {.async, gcsafe.} =
+          try:
+            await ms.handle(conn)
+            trace "ms.handle exited"
+          except:
+            error getCurrentExceptionMsg()
+          finally:
+            await conn.close()
      
-  #       ms.addHandler(proto, noise)
+        ms.addHandler(proto, noise)
 
-  #       let
-  #         clientConn = await transport.listen(local, connHandler)
-  #       await clientConn
+        let
+          clientConn = await transport.listen(local, connHandler)
+        await clientConn
 
-  #       result = true
+        result = true
 
-  #     check:
-  #       waitFor(testListenerDialer()) == true
+      check:
+        waitFor(testListenerDialer()) == true
 
-  # test "interop with rust noise":
+  # test "interop with rust noise as client":
   #   when true: # disable cos in CI we got no interop server/client
   #     proc testListenerDialer(): Future[bool] {.async.} =
   #       const
-  #         proto = "/noise/xx/25519/chachapoly/sha256/0.1.0"
+  #         proto = "/noise"
 
   #       let
   #         local = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
   #         remote = Multiaddress.init("/ip4/127.0.0.1/tcp/23456")
   #         info = PeerInfo.init(PrivateKey.random(RSA), [local])
-  #         noise = newNoise(info.privateKey)
+  #         noise = newNoise(info.privateKey, true)
   #         ms = newMultistream()
   #         transport = TcpTransport.newTransport()
   #         conn = await transport.dial(remote)
@@ -215,16 +215,16 @@ suite "Noise":
   #       check ms.select(conn, @[proto]).await == proto
 
   #       let
-  #         sconn = await noise.secure(conn, true)
+  #         sconn = await noise.secure(conn)
 
-  #       # use sconn
+  #       await sconn.write("Hello!".cstring, 6)
 
   #       result = true
 
   #     check:
   #       waitFor(testListenerDialer()) == true
 
-  # test "interop with go noise":
+  # test "interop with rust as server":
   #   when true: # disable cos in CI we got no interop server/client
   #     proc testListenerDialer(): Future[bool] {.async.} =
   #       let
@@ -236,7 +236,7 @@ suite "Noise":
 
   #       proc connHandler(conn: Connection) {.async, gcsafe.} =
   #         try:
-  #           let seconn = await noise.secure(conn, false)
+  #           let seconn = await noise.secure(conn)
   #           trace "ms.handle exited"
   #         finally:
   #           await conn.close()
