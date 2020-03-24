@@ -63,106 +63,106 @@ proc createSwitch(ma: MultiAddress; outgoing: bool): (Switch, PeerInfo) =
   result = (switch, peerInfo)
 
 suite "Noise":
-  test "e2e: handle write + noise":
-    proc testListenerDialer(): Future[bool] {.async.} =
-      let
-        server: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
-        serverInfo = PeerInfo.init(PrivateKey.random(RSA), [server])
-        serverNoise = newNoise(serverInfo.privateKey, outgoing = false)
+  # test "e2e: handle write + noise":
+  #   proc testListenerDialer(): Future[bool] {.async.} =
+  #     let
+  #       server: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
+  #       serverInfo = PeerInfo.init(PrivateKey.random(RSA), [server])
+  #       serverNoise = newNoise(serverInfo.privateKey, outgoing = false)
 
-      proc connHandler(conn: Connection) {.async, gcsafe.} =
-        let sconn = await serverNoise.secure(conn)
-        defer:
-          await sconn.close()
-        await sconn.write(cstring("Hello!"), 6)
+  #     proc connHandler(conn: Connection) {.async, gcsafe.} =
+  #       let sconn = await serverNoise.secure(conn)
+  #       defer:
+  #         await sconn.close()
+  #       await sconn.write(cstring("Hello!"), 6)
 
-      let
-        transport1: TcpTransport = newTransport(TcpTransport)
-      asyncCheck await transport1.listen(server, connHandler)
+  #     let
+  #       transport1: TcpTransport = newTransport(TcpTransport)
+  #     asyncCheck await transport1.listen(server, connHandler)
 
-      let
-        transport2: TcpTransport = newTransport(TcpTransport)
-        clientInfo = PeerInfo.init(PrivateKey.random(RSA), [transport1.ma])
-        clientNoise = newNoise(clientInfo.privateKey, outgoing = true)
-        conn = await transport2.dial(transport1.ma)
-        sconn = await clientNoise.secure(conn)
+  #     let
+  #       transport2: TcpTransport = newTransport(TcpTransport)
+  #       clientInfo = PeerInfo.init(PrivateKey.random(RSA), [transport1.ma])
+  #       clientNoise = newNoise(clientInfo.privateKey, outgoing = true)
+  #       conn = await transport2.dial(transport1.ma)
+  #       sconn = await clientNoise.secure(conn)
 
-        msg = await sconn.read(6)
+  #       msg = await sconn.read(6)
 
-      await sconn.close()
-      await transport1.close()
+  #     await sconn.close()
+  #     await transport1.close()
 
-      result = cast[string](msg) == "Hello!"
+  #     result = cast[string](msg) == "Hello!"
 
-    check:
-      waitFor(testListenerDialer()) == true
+  #   check:
+  #     waitFor(testListenerDialer()) == true
 
-  test "e2e: handle read + noise":
-    proc testListenerDialer(): Future[bool] {.async.} =
-      let
-        server: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
-        serverInfo = PeerInfo.init(PrivateKey.random(RSA), [server])
-        serverNoise = newNoise(serverInfo.privateKey, outgoing = false)
-        readTask = newFuture[void]()
+  # test "e2e: handle read + noise":
+  #   proc testListenerDialer(): Future[bool] {.async.} =
+  #     let
+  #       server: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
+  #       serverInfo = PeerInfo.init(PrivateKey.random(RSA), [server])
+  #       serverNoise = newNoise(serverInfo.privateKey, outgoing = false)
+  #       readTask = newFuture[void]()
 
-      proc connHandler(conn: Connection) {.async, gcsafe.} =
-        let sconn = await serverNoise.secure(conn)
-        defer:
-          await sconn.close()
-        let msg = await sconn.read(6)
-        check cast[string](msg) == "Hello!"
-        readTask.complete()
+  #     proc connHandler(conn: Connection) {.async, gcsafe.} =
+  #       let sconn = await serverNoise.secure(conn)
+  #       defer:
+  #         await sconn.close()
+  #       let msg = await sconn.read(6)
+  #       check cast[string](msg) == "Hello!"
+  #       readTask.complete()
 
-      let
-        transport1: TcpTransport = newTransport(TcpTransport)
-      asyncCheck await transport1.listen(server, connHandler)
+  #     let
+  #       transport1: TcpTransport = newTransport(TcpTransport)
+  #     asyncCheck await transport1.listen(server, connHandler)
 
-      let
-        transport2: TcpTransport = newTransport(TcpTransport)
-        clientInfo = PeerInfo.init(PrivateKey.random(RSA), [transport1.ma])
-        clientNoise = newNoise(clientInfo.privateKey, outgoing = true)
-        conn = await transport2.dial(transport1.ma)
-        sconn = await clientNoise.secure(conn)
+  #     let
+  #       transport2: TcpTransport = newTransport(TcpTransport)
+  #       clientInfo = PeerInfo.init(PrivateKey.random(RSA), [transport1.ma])
+  #       clientNoise = newNoise(clientInfo.privateKey, outgoing = true)
+  #       conn = await transport2.dial(transport1.ma)
+  #       sconn = await clientNoise.secure(conn)
 
-      await sconn.write("Hello!".cstring, 6)
-      await readTask
-      await sconn.close()
-      await transport1.close()
+  #     await sconn.write("Hello!".cstring, 6)
+  #     await readTask
+  #     await sconn.close()
+  #     await transport1.close()
 
-      result = true
+  #     result = true
 
-    check:
-      waitFor(testListenerDialer()) == true
+  #   check:
+  #     waitFor(testListenerDialer()) == true
 
-  test "e2e use switch dial proto string":
-    proc testSwitch(): Future[bool] {.async, gcsafe.} =
-      let ma1: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
-      let ma2: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
+  # test "e2e use switch dial proto string":
+  #   proc testSwitch(): Future[bool] {.async, gcsafe.} =
+  #     let ma1: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
+  #     let ma2: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0")
 
-      var peerInfo1, peerInfo2: PeerInfo
-      var switch1, switch2: Switch
-      var awaiters: seq[Future[void]]
+  #     var peerInfo1, peerInfo2: PeerInfo
+  #     var switch1, switch2: Switch
+  #     var awaiters: seq[Future[void]]
 
-      (switch1, peerInfo1) = createSwitch(ma1, false)
+  #     (switch1, peerInfo1) = createSwitch(ma1, false)
 
-      let testProto = new TestProto
-      testProto.init()
-      testProto.codec = TestCodec
-      switch1.mount(testProto)
-      (switch2, peerInfo2) = createSwitch(ma2, true)
-      awaiters.add(await switch1.start())
-      awaiters.add(await switch2.start())
-      let conn = await switch2.dial(switch1.peerInfo, TestCodec)
-      await conn.writeLp("Hello!")
-      let msg = cast[string](await conn.readLp())
-      check "Hello!" == msg
+  #     let testProto = new TestProto
+  #     testProto.init()
+  #     testProto.codec = TestCodec
+  #     switch1.mount(testProto)
+  #     (switch2, peerInfo2) = createSwitch(ma2, true)
+  #     awaiters.add(await switch1.start())
+  #     awaiters.add(await switch2.start())
+  #     let conn = await switch2.dial(switch1.peerInfo, TestCodec)
+  #     await conn.writeLp("Hello!")
+  #     let msg = cast[string](await conn.readLp())
+  #     check "Hello!" == msg
 
-      await allFutures(switch1.stop(), switch2.stop())
-      await allFutures(awaiters)
-      result = true
+  #     await allFutures(switch1.stop(), switch2.stop())
+  #     await allFutures(awaiters)
+  #     result = true
 
-    check:
-      waitFor(testSwitch()) == true
+  #   check:
+  #     waitFor(testSwitch()) == true
 
   test "interop with rust noise":
     when true: # disable cos in CI we got no interop server/client
@@ -178,14 +178,10 @@ suite "Noise":
           transport = TcpTransport.newTransport()
 
         proc connHandler(conn: Connection) {.async, gcsafe.} =
-          try:
-            await ms.handle(conn)
-            trace "ms.handle exited"
-          except:
-            error getCurrentExceptionMsg()
-          finally:
-            await conn.close()
-     
+          defer: await conn.close()
+          await ms.handle(conn)
+          trace "ms.handle exited"
+
         ms.addHandler(proto, noise)
 
         let
