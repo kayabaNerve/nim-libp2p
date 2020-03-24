@@ -50,9 +50,11 @@ method close*(t: TcpTransport): Future[void] {.async, gcsafe.} =
   trace "stopping transport"
   await procCall Transport(t).close() # call base
 
-  t.server.stop()
-  t.server.close()
-  trace "transport stopped"
+  if t.server != nil:
+    # This is not nil only if listen was called...
+    t.server.stop()
+    t.server.close()
+    trace "transport stopped"
 
 method listen*(t: TcpTransport,
                ma: MultiAddress,

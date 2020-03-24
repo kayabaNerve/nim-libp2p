@@ -154,5 +154,8 @@ method newStream*(m: Mplex,
 
 method close*(m: Mplex) {.async, gcsafe.} =
   trace "closing mplex muxer"
-  await allFutures(@[allFutures(toSeq(m.remote.values).mapIt(it.reset())),
+  try:
+    await allFutures(@[allFutures(toSeq(m.remote.values).mapIt(it.reset())),
                       allFutures(toSeq(m.local.values).mapIt(it.reset()))])
+  except LPStreamIncorrectError:
+    trace "transport was already closed"
